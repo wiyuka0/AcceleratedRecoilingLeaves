@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.wiyuka.acceleratedrecoiling.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "target": "@env(PREINIT)",
+  "mixins": [
+    "LivingEntityMixin",
+    "ServerLevelMixin",
+    "EntityGetterMixin"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

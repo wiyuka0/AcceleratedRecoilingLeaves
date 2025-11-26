@@ -1,0 +1,22 @@
+{
+  "api-version": "1.21.8",
+  "name": "AcceleratedRecoiling",
+  "version": "0.7-alpha-leaves",
+  "main": "com.wiyuka.acceleratedrecoiling.AcceleratedRecoiling",
+  "description": "A mod of AABB collision optimization",
+  "authors": [
+    "wiyuka"
+  ],
+  "folia-supported": true,
+  "features": {
+    "required": [
+      "mixin"
+    ]
+  },
+  "mixin": {
+    "package-name": "com.wiyuka.acceleratedrecoiling.mixin",
+    "mixins": [
+      "acceleratedrecoiling.mixins.json"
+    ]
+  }
+}
