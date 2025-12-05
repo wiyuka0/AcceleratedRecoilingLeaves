@@ -42,7 +42,7 @@ public class CollisionMapData {
         collisionMapInverse.clear();
     }
 
-    public static List<Entity> replace1(Entity entity, Level instance, boolean bidirectional) {
+    public static List<Entity> getCollision(Entity entity, Level instance, boolean bidirectional) {
         ArrayList<Integer> entities;
         if(bidirectional) entities = CollisionMapData.getBidirectional(entity.getId());
         else entities = CollisionMapData.get(entity.getId());

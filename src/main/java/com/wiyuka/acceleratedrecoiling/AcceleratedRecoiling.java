@@ -58,9 +58,7 @@ public class AcceleratedRecoiling extends JavaPlugin {
                 if (!FoldConfig.enableEntityCollision) {
                     return;
                 }
-
-                // 2. 准备集合
-                List<LivingEntity> livingEntities = new ArrayList<>();
+                List<Entity> livingEntities = new ArrayList<>();
                 // List<Player> playerEntities = new ArrayList<>(); // 如果你需要这个
 
                 // 3. 遍历 Mixin 传过来的 entityTickList
@@ -78,8 +76,8 @@ public class AcceleratedRecoiling extends JavaPlugin {
                     if (!entity.isRemoved()) {
                         if (entity instanceof Player) {
                             // playerEntities.add((Player) entity);
-                        } else if (entity instanceof LivingEntity) {
-                            livingEntities.add((LivingEntity) entity);
+                        } else if (entity instanceof Entity) {
+                            livingEntities.add(entity);
                         }
                     }
                 });
@@ -111,7 +109,7 @@ public class AcceleratedRecoiling extends JavaPlugin {
                 if (FoldConfig.enableEntityCollision
                         && !(entity instanceof net.minecraft.world.entity.player.Player)
                         && !level.isClientSide) {
-                    return CollisionMapData.replace1(entity, level, false).stream().map(obj -> (Object) obj).collect(Collectors.toList());
+                    return CollisionMapData.getCollision(entity, level, false).stream().map(obj -> (Object) obj).collect(Collectors.toList());
                 }
                 return null;
             }

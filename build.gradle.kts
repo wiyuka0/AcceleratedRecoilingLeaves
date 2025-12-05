@@ -57,6 +57,7 @@ tasks.withType(JavaCompile::class).configureEach {
                                 val cr = ClassReader(ins)
                                 val cw = ClassWriter(0)
 
+
                                 // 自定义 Visitor (Kotlin 的匿名内部类写法)
                                 val cv = object : ClassVisitor(Opcodes.ASM9, cw) {
                                     override fun visit(
@@ -98,7 +99,7 @@ tasks.withType(JavaCompile::class).configureEach {
 //apply(plugin = "org.spongepowered.mixin")
 
 group = "com.wiyuka"
-version = "1.0-SNAPSHOT"
+version = "0.7.2-alpha-leaves"
 
 repositories {
     mavenCentral()
