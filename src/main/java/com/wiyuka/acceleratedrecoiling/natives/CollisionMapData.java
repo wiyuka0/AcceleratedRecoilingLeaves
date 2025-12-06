@@ -68,7 +68,7 @@ public class CollisionMapData {
 
     public static List<Entity> getCollisionList(Entity source, Level level) {
         int id = TempID.getId(source);
-        if(id == -1) {
+        if(id == -1 || id > collisionMap.length) {
             return Collections.emptyList();
         }
         IntArrayList ids = collisionMap[id];
