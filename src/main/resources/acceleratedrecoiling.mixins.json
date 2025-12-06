@@ -5,9 +5,10 @@
   "compatibilityLevel": "JAVA_21",
   "target": "@env(PREINIT)",
   "mixins": [
+    "EntityGetterMixin",
+    "EntityMixin",
     "LivingEntityMixin",
-    "ServerLevelMixin",
-    "EntityGetterMixin"
+    "ServerLevelMixin"
   ],
   "client": [
   ],

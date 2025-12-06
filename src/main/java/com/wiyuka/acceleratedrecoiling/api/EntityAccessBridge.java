@@ -1,0 +1,28 @@
+package com.wiyuka.acceleratedrecoiling.api;
+
+import net.minecraft.world.entity.Entity;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+
+public class EntityAccessBridge {
+    private static final VarHandle NATIVE_ID_HANDLE;
+    static {
+        try {
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(Entity.class, MethodHandles.lookup());
+
+            NATIVE_ID_HANDLE = lookup.findVarHandle(Entity.class, "_accelerated_recoiling_native_id_", int.class);
+
+        } catch (IllegalAccessException | NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static int getNativeId(Entity entity) {
+        return (int) NATIVE_ID_HANDLE.get(entity);
+    }
+
+    public static void setNativeId(Entity entity, int id) {
+        NATIVE_ID_HANDLE.set(entity, id);
+    }
+}

@@ -99,7 +99,7 @@ tasks.withType(JavaCompile::class).configureEach {
 //apply(plugin = "org.spongepowered.mixin")
 
 group = "com.wiyuka"
-version = "0.7.2-alpha-leaves"
+version = "0.8-alpha-leaves"
 
 repositories {
     mavenCentral()

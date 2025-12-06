@@ -1,60 +1,110 @@
 package com.wiyuka.acceleratedrecoiling.natives;
 
+import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 
-import java.util.ArrayList;
+import java.util.AbstractList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 
 public class CollisionMapData {
-    private static final HashMap<Integer, ArrayList<Integer>> collisionMap = new HashMap<>();
-    private static final HashMap<Integer, ArrayList<Integer>> collisionMapInverse = new HashMap<>();
+//    private static final Int2ObjectOpenHashMap<IntArrayList> collisionMap = new Int2ObjectOpenHashMap<>(10000);
 
-    public static ArrayList<Integer> get(Integer key) {
-        return collisionMap.get(key);
-    }
-    public static ArrayList<Integer> getInverse(Integer key) {
-        return collisionMapInverse.get(key);
-    }
+    private static IntArrayList[] collisionMap = new IntArrayList[10000];
 
-    public static ArrayList<Integer> getBidirectional(Integer key) {
-        var positiveList = collisionMap.get(key);
-        var negativeList = collisionMapInverse.get(key);
-        if (positiveList == null) return negativeList;
-        if (negativeList == null) return positiveList;
-        var total = new ArrayList<Integer>();
-        total.addAll(positiveList);
-        total.addAll(negativeList);
-        return total;
+    public static void putCollision(int idA, int idB) {
+        addSingle(idA, idB);
+        addSingle(idB, idA);
     }
 
-    public static void putCollision(Integer key, Integer value) {
-        ArrayList<Integer> collisionSet = collisionMap.computeIfAbsent(key, k -> new ArrayList<>());
-        collisionSet.add(value);
-        ArrayList<Integer> collisionSetInverse = collisionMapInverse.computeIfAbsent(value, k -> new ArrayList<>());
-        collisionSetInverse.add(key);
+    private static void addSingle(int source, int target) {
+        if(collisionMap.length <= source) {
+            resize((int) (collisionMap.length * 1.5));
+        }
+        IntArrayList list = collisionMap[source];
+        if (list == null) {
+            list = new IntArrayList(FoldConfig.maxCollision * 2);
+            collisionMap[source] = list;
+//            collisionMap.put(source, list);
+        }
+        list.add(target);
+    }
+
+    public static void resize(int newSize) {
+        IntArrayList[] newCollisionMap = new IntArrayList[newSize];
+
+
+        for (int oldIndex = 0; oldIndex < collisionMap.length; oldIndex++) {
+            IntArrayList list = collisionMap[oldIndex];
+
+            if (list != null) {
+                int idA = oldIndex;
+
+                for (int i = 0; i < list.size(); i++) {
+                    int idB = list.get(i);
+                    if (idA < newSize) {
+                        IntArrayList newList = newCollisionMap[idA];
+                        if (newList == null) {
+                            newList = new IntArrayList();
+                            newCollisionMap[idA] = newList;
+                        }
+                        newList.add(idB);
+                    }
+                }
+            }
+        }
+
+        // 3. 将全局引用指向新的数组
+        collisionMap = newCollisionMap;
     }
 
     public static void clear() {
-        collisionMap.clear();
-        collisionMapInverse.clear();
+        Arrays.fill(collisionMap, null);
     }
 
-    public static List<Entity> getCollision(Entity entity, Level instance, boolean bidirectional) {
-        ArrayList<Integer> entities;
-        if(bidirectional) entities = CollisionMapData.getBidirectional(entity.getId());
-        else entities = CollisionMapData.get(entity.getId());
-        if(entities == null) return Collections.emptyList();
-        List<Entity> result = new ArrayList<>();
-        for (Integer Integer : (ArrayList<Integer>) entities.clone()) {
-            Entity entity1 = instance.getEntity(Integer);
-            if (entity1 == null) continue;
-            result.add(entity1);
+    public static List<Entity> getCollisionList(Entity source, Level level) {
+        int id = TempID.getId(source);
+        if(id == -1) {
+            return Collections.emptyList();
         }
-        return result;
+        IntArrayList ids = collisionMap[id];
+//        IntArrayList ids = collisionMap.get(source.getId());
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        return new EntityListView(ids, level, source);
+    }
+
+    private static class EntityListView extends AbstractList<Entity> {
+        private final IntArrayList ids;
+        private final Level level;
+        private final Entity source;
+
+        public EntityListView(IntArrayList ids, Level level, Entity source) {
+            this.ids = ids;
+            this.level = level;
+            this.source = source;
+        }
+
+        @Override
+        public Entity get(int index) {
+            int entityId = ids.getInt(index);
+//            Entity target = level.getEntity(entityId);
+            Entity target = TempID.getEntity(entityId);
+            if(target == null) return source;
+            return target;
+        }
+
+        @Override
+        public int size() {
+            return ids.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return ids.isEmpty();
+        }
     }
 }
-
-

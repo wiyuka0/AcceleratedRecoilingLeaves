@@ -5,8 +5,8 @@ import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
 import com.wiyuka.acceleratedrecoiling.listeners.ServerStop;
 import com.wiyuka.acceleratedrecoiling.natives.CollisionMapData;
 import com.wiyuka.acceleratedrecoiling.natives.ParallelAABB;
+import com.wiyuka.acceleratedrecoiling.natives.TempID;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 import net.minecraft.world.level.entity.EntityTickList;
@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 public class AcceleratedRecoiling extends JavaPlugin {
     public static Logger LOGGER = java.util.logging.Logger.getLogger("Accelerated Recoiling");
@@ -58,6 +57,8 @@ public class AcceleratedRecoiling extends JavaPlugin {
                 if (!FoldConfig.enableEntityCollision) {
                     return;
                 }
+
+                TempID.tickStart();
                 List<Entity> livingEntities = new ArrayList<>();
                 // List<Player> playerEntities = new ArrayList<>(); // 如果你需要这个
 
@@ -80,6 +81,7 @@ public class AcceleratedRecoiling extends JavaPlugin {
                             livingEntities.add(entity);
                         }
                     }
+                    TempID.addEntity(entity);
                 });
 
                 // 4. 调用你的并行处理逻辑
@@ -109,7 +111,10 @@ public class AcceleratedRecoiling extends JavaPlugin {
                 if (FoldConfig.enableEntityCollision
                         && !(entity instanceof net.minecraft.world.entity.player.Player)
                         && !level.isClientSide) {
-                    return CollisionMapData.getCollision(entity, level, false).stream().map(obj -> (Object) obj).collect(Collectors.toList());
+//                    return CollisionMapData.getCollisionList(entity, level).stream().map(obj -> (Object) obj).collect(Collectors.toList());
+                    @SuppressWarnings("unchecked")
+                    List<Object> castedList = (List<Object>) (List<?>) CollisionMapData.getCollisionList(entity, level);
+                    return castedList;
                 }
                 return null;
             }

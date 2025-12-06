@@ -45,12 +45,9 @@ public class ToggleFoldCommand implements BasicCommand {
             // 布尔值设置
             case "enableentitycollision" -> handleBoolean(stack, args, "enableEntityCollision", v -> FoldConfig.enableEntityCollision = v);
             case "enableentitygetteroptimization" -> handleBoolean(stack, args, "enableEntityGetterOptimization", v -> FoldConfig.enableEntityGetterOptimization = v);
-            case "usecpu" -> handleBoolean(stack, args, "useCPU", v -> FoldConfig.useCPU = v);
 
             // 整数设置
-            case "gridsize" -> handleInt(stack, args, "gridSize", v -> FoldConfig.gridSize = v);
             case "maxcollision" -> handleInt(stack, args, "maxCollision", v -> FoldConfig.maxCollision = v);
-            case "gpuindex" -> handleInt(stack, args, "gpuIndex", v -> FoldConfig.gpuIndex = v);
 
             default -> stack.getSender().sendMessage(Component.text("Unknown subcommand: " + subCommand, NamedTextColor.RED));
         }
@@ -147,10 +144,7 @@ public class ToggleFoldCommand implements BasicCommand {
 
         message = message.append(buildConfigLine("enableEntityCollision", FoldConfig.enableEntityCollision));
         message = message.append(buildConfigLine("enableEntityGetterOptimization", FoldConfig.enableEntityGetterOptimization));
-        message = message.append(buildConfigLine("gridSize", FoldConfig.gridSize));
         message = message.append(buildConfigLine("maxCollision", FoldConfig.maxCollision));
-        message = message.append(buildConfigLine("gpuIndex", FoldConfig.gpuIndex));
-        message = message.append(buildConfigLine("useCPU", FoldConfig.useCPU));
 
         message = message.append(Component.text("--------------------", NamedTextColor.DARK_GRAY));
 
@@ -164,10 +158,7 @@ public class ToggleFoldCommand implements BasicCommand {
         ConfigData data = new ConfigData(
                 FoldConfig.enableEntityCollision,
                 FoldConfig.enableEntityGetterOptimization,
-                FoldConfig.gridSize,
-                FoldConfig.maxCollision,
-                FoldConfig.gpuIndex,
-                FoldConfig.useCPU
+                FoldConfig.maxCollision
         );
 
         try (FileWriter writer = new FileWriter(targetFile)) {
@@ -191,18 +182,12 @@ public class ToggleFoldCommand implements BasicCommand {
         @SerializedName("useFold")
         public boolean enableEntityCollision;
         public boolean enableEntityGetterOptimization;
-        public int gridSize;
         public int maxCollision;
-        public int gpuIndex;
-        public boolean useCPU;
 
-        public ConfigData(boolean enableEntityCollision, boolean enableEntityGetterOptimization, int gridSize, int maxCollision, int gpuIndex, boolean useCPU) {
+        public ConfigData(boolean enableEntityCollision, boolean enableEntityGetterOptimization, int maxCollision) {
             this.enableEntityCollision = enableEntityCollision;
             this.enableEntityGetterOptimization = enableEntityGetterOptimization;
-            this.gridSize = gridSize;
             this.maxCollision = maxCollision;
-            this.gpuIndex = gpuIndex;
-            this.useCPU = useCPU;
         }
     }
 }

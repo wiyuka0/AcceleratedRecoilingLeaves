@@ -1,30 +1,18 @@
 package com.wiyuka.acceleratedrecoiling.natives;
 
-import com.wiyuka.acceleratedrecoiling.api.ICustomBB;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.util.HashSet;
 import java.util.List;
 
 public class ParallelAABB {
 
     static boolean isInitialized = false;
-
-    static class  EntityData {
-        LivingEntity entity;
-        int count;
-        EntityData(LivingEntity entity, int count) {
-            this.entity = entity;
-            this.count = count;
-        }
-
-        void setCount(int count) {
-            this.count = count;
-        }
-    }
 
     public static void handleEntityPush(final List<Entity> livingEntities, double inflate) {
 
@@ -54,35 +42,27 @@ public class ParallelAABB {
             index++;
         }
 
+
         int[] resultCounts = new int[1];
 
-        int[] result = nativePush(locations, aabb, resultCounts);
+        MemorySegment result = nativePush(locations, aabb, resultCounts);
 
-        if (result == null || result.length % 2 != 0) return;
-        HashSet<Long> collisions = new HashSet<>();
+        if (result == null) return;
 
-        for (int i = 0; i * 2 + 1 < result.length && i < resultCounts[0]; i++) {
-            int e1Index = result[i * 2];
-            int e2Index = result[i * 2 + 1];
+
+        for (int i = 0; i < resultCounts[0]; i++) {
+//            int e1Index = result[i * 2];
+//            int e2Index = result[i * 2 + 1];
+            int e1Index = result.getAtIndex(ValueLayout.JAVA_INT, i * 2);
+            int e2Index = result.getAtIndex(ValueLayout.JAVA_INT, i * 2 + 1);
             if (e1Index >= livingEntities.size() || e2Index >= livingEntities.size()) continue;
-
-//            LivingEntity e1 = livingEntities.get(e1Index);
-//            LivingEntity e2 = livingEntities.get(e2Index);
-//
-//            if(!e1.getBoundingBox().inflate(inflate).intersects(e2.getBoundingBox().inflate(inflate))) continue;
-//
-//            CollisionMapData.putCollision(e1.getId(), e2.getId());
 
             Entity e1 = livingEntities.get(e1Index);
             Entity e2 = livingEntities.get(e2Index);
 
-            if(!e1.getBoundingBox().inflate(inflate).intersects(e2.getBoundingBox().inflate(inflate))) continue;
+//            if(!e1.getBoundingBox().inflate(inflate).intersects(e2.getBoundingBox().inflate(inflate))) continue;
 
-            long collisionId = ((long) e1Index << 32 | (long) e2Index);
-            if(collisions.contains(collisionId)) continue;
-
-            collisions.add(collisionId);
-
+//            CollisionMapData.putCollision(e1.getUUID(), e2.getUUID());
             LivingEntity livingEntity;
             Entity entity;
 
@@ -94,7 +74,8 @@ public class ParallelAABB {
                 entity = e1;
             } else continue;
 
-            CollisionMapData.putCollision(livingEntity.getId(), entity.getId());
+//            CollisionMapData.putCollision(livingEntity.getId(), entity.getId());
+            CollisionMapData.putCollision(TempID.getId(livingEntity), TempID.getId(entity));
 //            e1.doPush(e2);
 //            e2.doPush(e1);
 
@@ -113,7 +94,7 @@ public class ParallelAABB {
 //        });
     }
 
-    public static int[] nativePush(double[] positions, double[] aabbs, int[] resultSizeOut) {
+    public static MemorySegment nativePush(double[] positions, double[] aabbs, int[] resultSizeOut) {
         if(!isInitialized) {
             NativeInterface.initialize();
             isInitialized = true;
