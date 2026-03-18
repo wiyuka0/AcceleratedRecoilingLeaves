@@ -24,6 +24,62 @@ plugins {
     id("com.github.johnrengelman.shadow") version "8.1.0"
 }
 
+tasks.register<Exec>("compileNativeLib") {
+    group = "build"
+    description = "Compiles the C++ Native Library using MSVC."
+    // 仅在 Windows 主机上执行
+    onlyIf {
+        System.getProperty("os.name").lowercase().contains("windows")
+    }
+    val cppSource = layout.projectDirectory.file("acceleratedRecoilingLib.cpp")
+    val dllOutput = layout.projectDirectory.file("build/acceleratedRecoilingLib.dll")
+    inputs.file(cppSource)
+    outputs.file(dllOutput)
+    workingDir = layout.projectDirectory.asFile
+    val vcvarsScript = "I:\\vs\\VC\\Auxiliary\\Build\\vcvars64.bat"
+
+    // 注意：已经加上了 /EHsc，并移除了 vcpkg 的 /LIBPATH
+    val compileCmd = """call "${vcvarsScript}" && cl.exe /std:c++latest /EHsc /O2 /fp:fast /arch:AVX2 /openmp /LD /MD /Zi /W3 /I"E:\\qucistart\\acceleratedrecoilingnative" acceleratedRecoilingLib.cpp /Fe"build\\acceleratedRecoilingLib.dll" /Fd"build\\acceleratedRecoilingLib.pdb" /link /OPT:REF /OPT:ICF"""
+    commandLine("cmd", "/c", compileCmd)
+    doFirst {
+        val bDir = File(workingDir, "build")
+        if (!bDir.exists()) {
+            bDir.mkdirs()
+        }
+        println("==== 正在使用 MSVC 编译 acceleratedRecoilingLib.dll (Windows) ====")
+    }
+}
+tasks.register<Exec>("compileNativeLibLinux") {
+    group = "build"
+    description = "Compiles the C++ Native Library for Linux (.so) using WSL and g++."
+    onlyIf {
+        System.getProperty("os.name").lowercase().contains("windows")
+    }
+    val cppSource = layout.projectDirectory.file("acceleratedRecoilingLib.cpp")
+    val soOutput = layout.projectDirectory.file("build/libacceleratedRecoilingLib.so")
+    inputs.file(cppSource)
+    outputs.file(soOutput)
+    workingDir = layout.projectDirectory.asFile
+    val compileCmd = "g++ -std=c++20 -O3 -ffast-math -mavx2 -fopenmp -shared -fPIC acceleratedRecoilingLib.cpp -o build/libacceleratedRecoilingLib.so"
+    commandLine("wsl", "bash", "-c", compileCmd)
+    doFirst {
+        val bDir = File(workingDir, "build")
+        if (!bDir.exists()) {
+            bDir.mkdirs()
+        }
+        println("==== 正在使用 WSL (g++) 编译 libacceleratedRecoilingLib.so (Linux) ====")
+    }
+}
+tasks.named<ProcessResources>("processResources") {
+    dependsOn("compileNativeLib", "compileNativeLibLinux")
+    from(layout.projectDirectory.file("build/acceleratedRecoilingLib.dll")) {
+        into("")
+    }
+    from(layout.projectDirectory.file("build/libacceleratedRecoilingLib.so")) {
+        into("")
+    }
+}
+
 tasks.withType(JavaCompile::class).configureEach {
     options.compilerArgs.add("--enable-preview")
 }
@@ -99,7 +155,7 @@ tasks.withType(JavaCompile::class).configureEach {
 //apply(plugin = "org.spongepowered.mixin")
 
 group = "com.wiyuka"
-version = "0.8.1-alpha-leaves-hotfix"
+version = "0.9.2-alpha-leaves"
 
 repositories {
     mavenCentral()

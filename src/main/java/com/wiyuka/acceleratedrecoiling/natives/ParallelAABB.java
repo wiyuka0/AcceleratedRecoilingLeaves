@@ -8,7 +8,6 @@ import net.minecraft.world.phys.Vec3;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import java.util.HashSet;
 import java.util.List;
 
 public class ParallelAABB {
@@ -46,16 +45,16 @@ public class ParallelAABB {
 
         int[] resultCounts = new int[1];
 
-        MemorySegment result = nativePush(locations, aabb, resultCounts);
+        NativeInterface.MemPair result = nativePush(locations, aabb, resultCounts);
 
-        if (result == null) return;
+        if (result == null || result.A() == null || result.B() == null) return;
 
 
         for (int i = 0; i < resultCounts[0]; i++) {
 //            int e1Index = result[i * 2];
 //            int e2Index = result[i * 2 + 1];
-            int e1Index = result.getAtIndex(ValueLayout.JAVA_INT, i * 2);
-            int e2Index = result.getAtIndex(ValueLayout.JAVA_INT, i * 2 + 1);
+            int e1Index = result.A().getAtIndex(ValueLayout.JAVA_INT, i);
+            int e2Index = result.B().getAtIndex(ValueLayout.JAVA_INT, i);
             if (e1Index >= livingEntities.size() || e2Index >= livingEntities.size()) continue;
 
             Entity e1 = livingEntities.get(e1Index);
@@ -97,7 +96,7 @@ public class ParallelAABB {
 //        });
     }
 
-    public static MemorySegment nativePush(double[] positions, double[] aabbs, int[] resultSizeOut) {
+    public static NativeInterface.MemPair nativePush(double[] positions, double[] aabbs, int[] resultSizeOut) {
         if(!isInitialized) {
             NativeInterface.initialize();
             isInitialized = true;

@@ -31,6 +31,18 @@ public class LivingEntityMixin {
             method = "pushEntities",
             at = @At(
                     value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/LivingEntity;doPush(Lnet/minecraft/world/entity/Entity;)V")
+    )
+    private void doPushVerify(LivingEntity instance, Entity entity, Operation<Void> original){
+        if(instance.getBoundingBox().intersects(entity.getBoundingBox())){
+            original.call(instance, entity);
+        }
+    }
+
+    @WrapOperation(
+            method = "pushEntities",
+            at = @At(
+                    value = "INVOKE",
                     target = "Lnet/minecraft/world/level/Level;getPushableEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;"
             )
     )

@@ -110,7 +110,7 @@ public class AcceleratedRecoiling extends JavaPlugin {
                 net.minecraft.world.entity.Entity entity = (net.minecraft.world.entity.Entity) entityObj;
                 if (FoldConfig.enableEntityCollision
                         && !(entity instanceof net.minecraft.world.entity.player.Player)
-                        && !level.isClientSide) {
+                        && !level.isClientSide()) {
 //                    return CollisionMapData.getCollisionList(entity, level).stream().map(obj -> (Object) obj).collect(Collectors.toList());
                     @SuppressWarnings("unchecked")
                     List<Object> castedList = (List<Object>) (List<?>) CollisionMapData.getCollisionList(entity, level);
