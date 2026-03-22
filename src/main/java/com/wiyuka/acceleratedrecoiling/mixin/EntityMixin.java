@@ -10,4 +10,7 @@ public abstract class EntityMixin{
     @Unique
     public int _accelerated_recoiling_native_id_ = -1;
 
+    @Unique
+    public float _accelerated_recoiling_density_ = -1f;
+
 }

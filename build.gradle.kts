@@ -155,7 +155,7 @@ tasks.withType(JavaCompile::class).configureEach {
 //apply(plugin = "org.spongepowered.mixin")
 
 group = "com.wiyuka"
-version = "0.9.2-alpha-leaves"
+version = "0.9.5-alpha-leaves"
 
 repositories {
     mavenCentral()

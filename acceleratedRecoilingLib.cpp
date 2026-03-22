@@ -226,6 +226,11 @@ static inline void radixSort64_OMP(SAPNode* src, std::vector<SAPNode>& buffer, s
     }
 }
 
+struct Config
+{
+    int maxColision; int gridSize; int densityWindow;
+};
+
 struct EntityData
 {
     AlignedVector<SAPNode> sortedList;
@@ -293,14 +298,42 @@ extern "C" EXPORT void destroyCtx(void* context_ptr) {
     }
 }
 
-extern "C" EXPORT int push(const double *aabbs, int *outputA, int *outputB, int entityCount, int K, int gridSize, void* memDataPtrOri)
+extern "C" EXPORT void* createCfg(int maxCollision, int gridSize, int densityWindow, int maxThreads) {
+    if(maxThreads > 0) {
+        omp_set_num_threads(maxThreads);
+    }
+    return new Config {
+        maxCollision, gridSize, densityWindow,
+    };
+}
+
+extern "C" EXPORT void updateCfg(void* configPtr, int maxCollision, int gridSize, int densityWindow, int maxThreads) {
+    if (configPtr) {
+        Config* cfg = static_cast<Config*>(configPtr);
+        cfg->maxColision = maxCollision;
+        cfg->gridSize = gridSize;
+        cfg->densityWindow = densityWindow;
+    }
+    if (maxThreads > 0) {
+        omp_set_num_threads(maxThreads);
+    }
+}
+extern "C" EXPORT void destroyCfg(void* configPtr) {
+    if (configPtr) {
+        delete static_cast<Config*>(configPtr);
+    }
+}
+
+extern "C" EXPORT int push(const double *aabbs, int *outputA, int *outputB, int entityCount, float* densityBuf, void* memDataPtrOri, void* configPtr)
 {
 
-    if (entityCount < 2 || aabbs == nullptr || outputA == nullptr || outputB == nullptr)
+    if (entityCount < 2 || aabbs == nullptr || outputA == nullptr || outputB == nullptr || configPtr == nullptr || memDataPtrOri == nullptr)
     {
         return 0;
     }
 
+    auto configStructPtr = (Config*) configPtr;
+    int K = configStructPtr->maxColision, gridSize = configStructPtr->gridSize;
 
 
     ensureSize(entityCount);
@@ -309,6 +342,7 @@ extern "C" EXPORT int push(const double *aabbs, int *outputA, int *outputB, int 
     // static thread_local EntityData memData;
     auto memDataPtr = (EntityData*) memDataPtrOri;
     memDataPtr->ensureSize(entityCount);
+
 
 
     SAPNode* __restrict sortedList = memDataPtr->sortedList.data();
@@ -419,6 +453,44 @@ extern "C" EXPORT int push(const double *aabbs, int *outputA, int *outputB, int 
     const int *__restrict pIDs = sortedOriginalIDs;
 
     int* __restrict counts = memDataPtr->collisionCounts.data();
+
+
+    if(densityBuf) {
+        start();
+        float* pDensity = densityBuf;
+
+        const int WINDOW = 4;
+
+        const float EPSILON_DISTANCE = 0.1f;
+        #pragma omp parallel for schedule(static)
+        for (int grid = 0; grid < (int)runStarts.size() - 1; grid++)
+        {
+            int startIdx = runStarts[grid];
+            int endIdx = runStarts[grid + 1];
+            for (int i = startIdx; i < endIdx; ++i)
+            {
+                int left = std::max(startIdx, i - WINDOW);
+                int right = std::min(endIdx - 1, i + WINDOW);
+
+                int count = right - left + 1;
+
+                if (count <= 1) {
+                    pDensity[pIDs[i]] = 0.0f;
+                    continue;
+                }
+
+                int dx_quantized = pMinX[right] - pMinX[left];
+
+                float dx_real = (float)dx_quantized / (float)SCALE;
+
+                float localDensity = (float)count / (dx_real + EPSILON_DISTANCE);
+
+                pDensity[pIDs[i]] = localDensity;
+            }
+        }
+        stop();
+        logTime("Density Estimation");
+    }
 
 
     #pragma omp parallel for schedule(guided, 64) reduction(+ : collisionCount)

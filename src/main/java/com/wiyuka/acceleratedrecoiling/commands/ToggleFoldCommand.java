@@ -2,192 +2,239 @@ package com.wiyuka.acceleratedrecoiling.commands;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
-import com.wiyuka.acceleratedrecoiling.config.FoldConfig; // 假设你的配置类在这里
+import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
+import com.wiyuka.acceleratedrecoiling.natives.NativeInterface;
+
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.jetbrains.annotations.NotNull;
+import org.bukkit.command.CommandSender;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
+// Paper 的新 Command API 需要
 public class ToggleFoldCommand implements BasicCommand {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     @Override
-    public void execute(@NotNull CommandSourceStack stack, @NotNull String[] args) {
-        // 权限检查 (对应原本的 requires(permission(2)))
-        // 建议在 plugin.yml 中定义该权限，这里假设权限名为 acceleratedrecoiling.admin
-        if (!stack.getSender().hasPermission("acceleratedrecoiling.admin")) {
-            stack.getSender().sendMessage(Component.text("You do not have permission to run this command.", NamedTextColor.RED));
-            return;
-        }
+    public void execute(CommandSourceStack stack, String[] args) {
+        CommandSender sender = stack.getSender();
+
+        if(!(stack.getSender().hasPermission("acceleratedrecoiling.admin") || stack.getSender().isOp())) return;
 
         if (args.length == 0) {
-            stack.getSender().sendMessage(Component.text("Usage: /togglefold <check|save|option> [value]", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Missing arguments.", NamedTextColor.RED));
             return;
         }
 
         String subCommand = args[0].toLowerCase();
 
         switch (subCommand) {
-            case "check" -> checkConfig(stack);
-            case "save" -> save(stack);
-
-            // 布尔值设置
-            case "enableentitycollision" -> handleBoolean(stack, args, "enableEntityCollision", v -> FoldConfig.enableEntityCollision = v);
-            case "enableentitygetteroptimization" -> handleBoolean(stack, args, "enableEntityGetterOptimization", v -> FoldConfig.enableEntityGetterOptimization = v);
-
-            // 整数设置
-            case "maxcollision" -> handleInt(stack, args, "maxCollision", v -> FoldConfig.maxCollision = v);
-
-            default -> stack.getSender().sendMessage(Component.text("Unknown subcommand: " + subCommand, NamedTextColor.RED));
+            case "check" -> { checkConfig(sender); return; }
+            case "save" -> { save(sender); return; }
+            case "updateconfig" -> { updateConfig(sender); return; }
         }
-    }
 
-    // --- Tab 补全建议 (可选，为了体验更好) ---
-    @Override
-    public @NotNull List<String> suggest(@NotNull CommandSourceStack commandSourceStack, @NotNull String[] args) {
-        if (args.length == 1) {
-            return List.of("check", "save", "enableEntityCollision", "enableEntityGetterOptimization", "gridSize", "maxCollision", "gpuIndex", "useCPU");
-        }
-        if (args.length == 2) {
-            String sub = args[0].toLowerCase();
-            if (sub.startsWith("enable") || sub.equals("usecpu")) {
-                return List.of("true", "false");
+        // 动态读取并设置 Config 的字段
+        for (Field field : FoldConfig.class.getDeclaredFields()) {
+            int modifiers = field.getModifiers();
+            if (!Modifier.isStatic(modifiers) || Modifier.isFinal(modifiers)) continue;
+
+            if (field.getName().equalsIgnoreCase(args[0])) {
+                handleField(sender, field, args);
+                return;
             }
         }
-        return Collections.emptyList();
+
+        sender.sendMessage(Component.text("Unknown subcommand or config field: " + args[0], NamedTextColor.RED));
     }
 
-    // --- 逻辑处理方法 ---
+    @Override
+    public Collection<String> suggest(CommandSourceStack stack, String[] args) {
+        List<String> suggestions = new ArrayList<>();
 
-    @FunctionalInterface
-    interface BooleanSetter { void set(boolean val); }
+        if (args.length == 1) {
+            suggestions.add("check");
+            suggestions.add("save");
+            suggestions.add("updateConfig");
 
-    @FunctionalInterface
-    interface IntSetter { void set(int val); }
+            for (Field field : FoldConfig.class.getDeclaredFields()) {
+                int modifiers = field.getModifiers();
+                if (Modifier.isStatic(modifiers) && !Modifier.isFinal(modifiers)) {
+                    suggestions.add(field.getName());
+                }
+            }
+            return filterStartsWith(suggestions, args[0]);
 
-    private void handleBoolean(CommandSourceStack stack, String[] args, String configName, BooleanSetter setter) {
-        if (args.length < 2) {
-            stack.getSender().sendMessage(Component.text("Usage: /togglefold " + configName + " <true|false>", NamedTextColor.RED));
-            return;
+        } else if (args.length == 2) {
+            String fieldName = args[0];
+            for (Field field : FoldConfig.class.getDeclaredFields()) {
+                if (field.getName().equalsIgnoreCase(fieldName)) {
+                    if (field.getType() == boolean.class) {
+                        suggestions.add("true");
+                        suggestions.add("false");
+                    }
+                    return filterStartsWith(suggestions, args[1]);
+                }
+            }
         }
-        // 解析 true/false
-        String input = args[1].toLowerCase();
-        if (!input.equals("true") && !input.equals("false")) {
-            stack.getSender().sendMessage(Component.text("Invalid boolean value. Use true or false.", NamedTextColor.RED));
-            return;
-        }
-        boolean value = Boolean.parseBoolean(input);
-        setter.set(value);
-        sendSuccessMessage(stack, configName, value);
+
+        return List.of();
     }
 
-    private void handleInt(CommandSourceStack stack, String[] args, String configName, IntSetter setter) {
-        if (args.length < 2) {
-            stack.getSender().sendMessage(Component.text("Usage: /togglefold " + configName + " <integer>", NamedTextColor.RED));
-            return;
-        }
+    private List<String> filterStartsWith(List<String> list, String prefix) {
+        return list.stream()
+                .filter(s -> s.toLowerCase().startsWith(prefix.toLowerCase()))
+                .collect(Collectors.toList());
+    }
+
+    private void handleField(CommandSender sender, Field field, String[] args) {
+        field.setAccessible(true);
+        Class<?> type = field.getType();
+
         try {
-            int value = Integer.parseInt(args[1]);
-            setter.set(value);
-            sendSuccessMessage(stack, configName, value);
+            if (type == boolean.class) {
+                if (args.length == 1) {
+                    // 无参数时直接翻转布尔值
+                    boolean currentValue = field.getBoolean(null);
+                    setFieldValue(sender, field, !currentValue);
+                } else {
+                    boolean val = Boolean.parseBoolean(args[1]);
+                    setFieldValue(sender, field, val);
+                }
+            } else if (args.length > 1) {
+                if (type == int.class) {
+                    setFieldValue(sender, field, Integer.parseInt(args[1]));
+                } else if (type == float.class) {
+                    setFieldValue(sender, field, Float.parseFloat(args[1]));
+                } else if (type == double.class) {
+                    setFieldValue(sender, field, Double.parseDouble(args[1]));
+                }
+            } else {
+                sender.sendMessage(Component.text("Missing value for " + field.getName(), NamedTextColor.RED));
+            }
         } catch (NumberFormatException e) {
-            stack.getSender().sendMessage(Component.text("Invalid integer value: " + args[1], NamedTextColor.RED));
+            sender.sendMessage(Component.text("Invalid number format.", NamedTextColor.RED));
+        } catch (IllegalAccessException e) {
+            sender.sendMessage(Component.text("Cannot access config field.", NamedTextColor.RED));
         }
     }
 
-    // --- 消息构建与功能实现 ---
+    private void updateConfig(CommandSender sender) {
+        NativeInterface.applyConfig();
+        sender.sendMessage(Component.text("Config applied via NativeInterface.", NamedTextColor.GREEN));
+    }
 
-    private void sendSuccessMessage(CommandSourceStack stack, String configName, Object newValue) {
-        Component message = Component.text("Config ")
-                .color(NamedTextColor.GRAY)
+    private void setFieldValue(CommandSender sender, Field field, Object newValue) {
+        try {
+            field.set(null, newValue);
+            sendSuccessMessage(sender, field.getName(), newValue);
+            NativeInterface.applyConfig();
+        } catch (IllegalAccessException e) {
+            sender.sendMessage(Component.text("Failed to modify config: " + e.getMessage(), NamedTextColor.RED));
+            e.printStackTrace();
+        }
+    }
+
+    private void sendSuccessMessage(CommandSender sender, String configName, Object newValue) {
+        // 注意：Adventure API 的 Component 是不可变的(Immutable)，append 会返回新的对象
+        Component message = Component.text("Config ", NamedTextColor.GRAY)
                 .append(Component.text(configName, NamedTextColor.GOLD, TextDecoration.BOLD))
                 .append(Component.text(" updated to ", NamedTextColor.GRAY));
 
         if (newValue instanceof Boolean boolValue) {
-            message = message.append(Component.text(String.valueOf(boolValue), boolValue ? NamedTextColor.GREEN : NamedTextColor.RED));
+            message = message.append(Component.text(String.valueOf(boolValue),
+                    boolValue ? NamedTextColor.GREEN : NamedTextColor.RED));
         } else {
             message = message.append(Component.text(String.valueOf(newValue), NamedTextColor.AQUA));
         }
 
-        stack.getSender().sendMessage(message);
+        sender.sendMessage(message);
     }
 
     private Component buildConfigLine(String configName, Object value) {
         Component line = Component.text("  " + configName + ": ", NamedTextColor.GRAY);
 
         if (value instanceof Boolean boolValue) {
-            line = line.append(Component.text(String.valueOf(boolValue))
-                    .color(boolValue ? NamedTextColor.GREEN : NamedTextColor.RED)
-                    .decorate(TextDecoration.BOLD));
+            line = line.append(Component.text(String.valueOf(boolValue),
+                    boolValue ? NamedTextColor.GREEN : NamedTextColor.RED, TextDecoration.BOLD));
         } else {
-            line = line.append(Component.text(String.valueOf(value))
-                    .color(NamedTextColor.AQUA)
-                    .decorate(TextDecoration.BOLD));
+            line = line.append(Component.text(String.valueOf(value),
+                    NamedTextColor.AQUA, TextDecoration.BOLD));
         }
-        return line.append(Component.newline());
+
+        return line.append(Component.text("\n"));
     }
 
-    private void checkConfig(CommandSourceStack stack) {
-        Component message = Component.text("Current Accelerated Recoiling Config", NamedTextColor.WHITE)
+    private void checkConfig(CommandSender sender) {
+        Component message = Component.text("Accelerated Recoiling", NamedTextColor.AQUA)
                 .append(Component.text("\n--------------------\n", NamedTextColor.DARK_GRAY));
 
-        message = message.append(buildConfigLine("enableEntityCollision", FoldConfig.enableEntityCollision));
-        message = message.append(buildConfigLine("enableEntityGetterOptimization", FoldConfig.enableEntityGetterOptimization));
-        message = message.append(buildConfigLine("maxCollision", FoldConfig.maxCollision));
+        for (Field field : FoldConfig.class.getDeclaredFields()) {
+            int modifiers = field.getModifiers();
+            if (!Modifier.isStatic(modifiers)) continue;
+
+            field.setAccessible(true);
+            try {
+                Object value = field.get(null);
+                message = message.append(buildConfigLine(field.getName(), value));
+            } catch (IllegalAccessException ignored) {
+            }
+        }
 
         message = message.append(Component.text("--------------------", NamedTextColor.DARK_GRAY));
-
-        stack.getSender().sendMessage(message);
+        sender.sendMessage(message);
     }
 
-    private void save(CommandSourceStack stack) {
-        // 注意：这里保存到服务器根目录，建议改为 plugin.getDataFolder() 下
+    private void save(CommandSender sender) {
+        // 建议将其放入插件的 DataFolder 中，此处为了与你原版逻辑一致仍使用原路径名
         File targetFile = new File("acceleratedRecoiling.json");
+        JsonObject jsonObject = new JsonObject();
 
-        ConfigData data = new ConfigData(
-                FoldConfig.enableEntityCollision,
-                FoldConfig.enableEntityGetterOptimization,
-                FoldConfig.maxCollision
-        );
+        for (Field field : FoldConfig.class.getDeclaredFields()) {
+            int modifiers = field.getModifiers();
+            if (!Modifier.isStatic(modifiers) || Modifier.isFinal(modifiers)) continue;
+
+            field.setAccessible(true);
+            try {
+                Object value = field.get(null);
+                String jsonKey = field.getName();
+                SerializedName serializedName = field.getAnnotation(SerializedName.class);
+
+                if (serializedName != null) jsonKey = serializedName.value();
+                if (value instanceof Boolean bool) jsonObject.addProperty(jsonKey, bool);
+                else if (value instanceof Number number) jsonObject.addProperty(jsonKey, number);
+                else if (value instanceof String string) jsonObject.addProperty(jsonKey, string);
+
+            } catch (IllegalAccessException ignored) {
+            }
+        }
 
         try (FileWriter writer = new FileWriter(targetFile)) {
-            GSON.toJson(data, writer);
+            GSON.toJson(jsonObject, writer);
 
             Component message = Component.text("Config saved ", NamedTextColor.GREEN)
                     .append(Component.text(targetFile.getName(), NamedTextColor.AQUA, TextDecoration.BOLD));
-            stack.getSender().sendMessage(message);
+            sender.sendMessage(message);
 
         } catch (IOException e) {
             Component message = Component.text("Failed to save config file: ", NamedTextColor.RED)
                     .append(Component.text(e.getMessage(), NamedTextColor.WHITE));
-            stack.getSender().sendMessage(message);
+            sender.sendMessage(message);
             e.printStackTrace();
-        }
-    }
-
-    // --- 数据类 ---
-
-    private static class ConfigData {
-        @SerializedName("useFold")
-        public boolean enableEntityCollision;
-        public boolean enableEntityGetterOptimization;
-        public int maxCollision;
-
-        public ConfigData(boolean enableEntityCollision, boolean enableEntityGetterOptimization, int maxCollision) {
-            this.enableEntityCollision = enableEntityCollision;
-            this.enableEntityGetterOptimization = enableEntityGetterOptimization;
-            this.maxCollision = maxCollision;
         }
     }
 }

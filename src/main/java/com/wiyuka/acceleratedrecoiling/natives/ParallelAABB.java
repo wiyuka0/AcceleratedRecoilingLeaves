@@ -1,5 +1,9 @@
 package com.wiyuka.acceleratedrecoiling.natives;
 
+import com.wiyuka.acceleratedrecoiling.api.EntityAccessBridge;
+import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySelector;
 import net.minecraft.world.entity.LivingEntity;
@@ -45,10 +49,32 @@ public class ParallelAABB {
 
         int[] resultCounts = new int[1];
 
-        NativeInterface.MemPair result = nativePush(locations, aabb, resultCounts);
+        NativeInterface.PushResult result = nativePush(locations, aabb, resultCounts);
 
         if (result == null || result.A() == null || result.B() == null) return;
 
+        index = 0;
+        for (Entity entity : livingEntities) {
+//            ICustomData customBB = (ICustomData) entity;
+            float density = result.density().getAtIndex(ValueLayout.JAVA_FLOAT, index);
+//            customBB.setDensity(density);
+            EntityAccessBridge.setDensity(entity, density);
+            float currentDensity = density;
+            if (FoldConfig.debugDensity) {
+                Component debugName = Component.literal("Density: ")
+                        .withStyle(ChatFormatting.GREEN)
+                        .append(Component.literal(String.format("%.2f", currentDensity))
+                                .withStyle(ChatFormatting.YELLOW));
+
+                entity.setCustomName(debugName);
+                entity.setCustomNameVisible(true);
+            }
+//            else if (entity.hasCustomName() && entity.getCustomName().getString().startsWith("Density: ")) {
+//                entity.setCustomName(null);
+//                entity.setCustomNameVisible(false);
+//            }
+            index++;
+        }
 
         for (int i = 0; i < resultCounts[0]; i++) {
 //            int e1Index = result[i * 2];
@@ -96,7 +122,7 @@ public class ParallelAABB {
 //        });
     }
 
-    public static NativeInterface.MemPair nativePush(double[] positions, double[] aabbs, int[] resultSizeOut) {
+    public static NativeInterface.PushResult nativePush(double[] positions, double[] aabbs, int[] resultSizeOut) {
         if(!isInitialized) {
             NativeInterface.initialize();
             isInitialized = true;
