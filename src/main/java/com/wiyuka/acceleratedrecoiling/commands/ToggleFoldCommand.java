@@ -48,7 +48,6 @@ public class ToggleFoldCommand implements BasicCommand {
             case "updateconfig" -> { updateConfig(sender); return; }
         }
 
-        // 动态读取并设置 Config 的字段
         for (Field field : FoldConfig.class.getDeclaredFields()) {
             int modifiers = field.getModifiers();
             if (!Modifier.isStatic(modifiers) || Modifier.isFinal(modifiers)) continue;

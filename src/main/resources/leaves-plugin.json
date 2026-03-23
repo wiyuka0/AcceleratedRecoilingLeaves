@@ -1,7 +1,7 @@
 {
   "api-version": "1.21.8",
   "name": "AcceleratedRecoiling",
-  "version": "0.9.5-alpha-leaves",
+  "version": "0.9.6-alpha-leaves",
   "main": "com.wiyuka.acceleratedrecoiling.AcceleratedRecoiling",
   "description": "A mod of AABB collision optimization",
   "authors": [

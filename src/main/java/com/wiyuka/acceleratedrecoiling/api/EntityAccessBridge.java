@@ -28,8 +28,8 @@ public class EntityAccessBridge {
         NATIVE_ID_HANDLE.set(entity, id);
     }
 
-    public static int getDensity(Entity entity) {
-        return (int) DENSITY_HANDLE.get(entity);
+    public static float getDensity(Entity entity) {
+        return (float) DENSITY_HANDLE.get(entity);
     }
 
     public static void setDensity(Entity entity, float density) {
