@@ -5,6 +5,7 @@ import com.wiyuka.acceleratedrecoiling.commands.ToggleFoldCommand;
 import com.wiyuka.acceleratedrecoiling.config.FoldConfig;
 import com.wiyuka.acceleratedrecoiling.listeners.ServerStop;
 import com.wiyuka.acceleratedrecoiling.natives.CollisionMapData;
+import com.wiyuka.acceleratedrecoiling.natives.JavaVanillaBackend;
 import com.wiyuka.acceleratedrecoiling.natives.ParallelAABB;
 import com.wiyuka.acceleratedrecoiling.natives.TempID;
 import net.minecraft.world.entity.Entity;
@@ -18,14 +19,60 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class AcceleratedRecoiling extends JavaPlugin {
-    public static Logger LOGGER = java.util.logging.Logger.getLogger("Accelerated Recoiling");
+    public static Logger JUL_LOGGER = java.util.logging.Logger.getLogger("Accelerated Recoiling");
+
+    public static SLF4JLike LOGGER;
+    public class SLF4JLike {
+
+        private final Logger logger;
+
+        public SLF4JLike(Logger logger) {
+            this.logger = logger;
+        }
+
+        private String format(String message, Object... args) {
+            if (args == null || args.length == 0) return message;
+
+            for (Object arg : args) {
+                message = message.replaceFirst("\\{}", arg == null ? "null" : arg.toString());
+            }
+            return message;
+        }
+
+        public void info(String msg, Object... args) {
+            if (logger.isLoggable(Level.INFO)) {
+                logger.log(Level.INFO, format(msg, args));
+            }
+        }
+
+        public void warn(String msg, Object... args) {
+            if (logger.isLoggable(Level.WARNING)) {
+                logger.log(Level.WARNING, format(msg, args));
+            }
+        }
+
+        public void error(String msg, Object... args) {
+            if (logger.isLoggable(Level.SEVERE)) {
+                logger.log(Level.SEVERE, format(msg, args));
+            }
+        }
+
+        public void debug(String msg, Object... args) {
+            if (logger.isLoggable(Level.FINE)) {
+                logger.log(Level.FINE, format(msg, args));
+            }
+        }
+    }
 
     @Override
     public void onEnable() {
         super.onEnable();
+
+        LOGGER = new SLF4JLike(JUL_LOGGER);
 
         registerCommand("acceleratedrecoiling", new ToggleFoldCommand());
         ClassLoader appClassLoader = net.minecraft.world.entity.Entity.class.getClassLoader();
@@ -56,6 +103,7 @@ public class AcceleratedRecoiling extends JavaPlugin {
             }
 
             TempID.tickStart();
+            if(JavaVanillaBackend.isSelected()) JavaVanillaBackend.tick((EntityTickList) entityListIterable);
             List<Entity> livingEntities = new ArrayList<>();
 
             ((EntityTickList)entityListIterable).forEach(entity -> {
@@ -91,6 +139,11 @@ public class AcceleratedRecoiling extends JavaPlugin {
 
             if (!FoldConfig.enableEntityCollision || entity instanceof Player || level.isClientSide()) {
                 return null;
+            }
+
+            if(JavaVanillaBackend.isSelected()) {
+//                List<Entity> originalEntities = JavaVanillaBackend.getPushableEntities(entity, entity.getBoundingBox());
+                return new ArrayList<>(JavaVanillaBackend.getPushableEntities(entity, entity.getBoundingBox()));
             }
 
             if (EntityAccessBridge.getDensity(entity) < FoldConfig.densityThreshold) {

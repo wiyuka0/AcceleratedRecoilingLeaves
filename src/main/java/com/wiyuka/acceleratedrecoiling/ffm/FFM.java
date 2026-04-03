@@ -18,7 +18,7 @@ public class FFM {
     private static final MethodHandle ALLOCATE_HANDLE;
 
     static {
-        Logger logger = AcceleratedRecoiling.LOGGER;
+        Logger logger = AcceleratedRecoiling.JUL_LOGGER;
 
         MethodHandles.Lookup lookup = MethodHandles.publicLookup();
         MethodHandle handle = null;
